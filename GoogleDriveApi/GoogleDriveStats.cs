@@ -17,17 +17,6 @@ namespace GoogleDriveApi
         {
             Credential = AuthorizeCredential(pathToCredential);
         }
-        //string credentialsPath = Path.Combine(Environment.CurrentDirectory, "Credential.json");
-        string pathToUploadFile = Path.Combine(Environment.CurrentDirectory, "testdrive.txt");//path and file name
-        string pathToDirecoty = @"C:\Users\psair\Desktop\temper2.txt";
-        string fileID = "1NcVS4e6Gwj2LD-I3sOz7q2dYv1uPPFdP";
-        
-
-        var t = DriveUploadTxtFile(pathToDirecoty, "testDrive", credential);
-         
-        ListenFile(credential);
-        Console.ReadLine();
-
         private UserCredential AuthorizeCredential(string credentialsPath)
         {
             UserCredential credential;
@@ -57,7 +46,13 @@ namespace GoogleDriveApi
                 return null;
 
         }
-        public string DownloadFile(string pathToDirectory, string newFileName, string fileID)//path to upload file
+        /// <summary>
+        /// Download file from google drive by fileId
+        /// </summary>
+        /// <param name="pathToDirectory">Path where must be file after download</param>
+        /// <param name="fileID">Id of file in google drive</param>
+        /// <returns>File id</returns>
+        public string DownloadFile(string pathToDirectory, string fileID)
         {
             try
             {
@@ -68,8 +63,17 @@ namespace GoogleDriveApi
                     ApplicationName = "Drive API .NET"
                 });
 
+                FilesResource.ListRequest requestName = service.Files.List();
+                requestName.Q = "trashed = false";
+                var result = requestName.Execute();
+                string name = "newItem.txt";
+                foreach (var item in result.Files)
+                {
+                    if(item.Id == fileID)   
+                        name = item.Name;   
+                }
                 FilesResource.GetRequest listRequest = service.Files.Get(fileID);// Define parameters of request.
-                using (var stream = new FileStream(pathToDirectory, FileMode.OpenOrCreate))
+                using (var stream = new FileStream(pathToDirectory +"\\"+ name, FileMode.OpenOrCreate))
                 {
                     var status = listRequest.DownloadWithStatus(stream);
                 }
@@ -81,7 +85,7 @@ namespace GoogleDriveApi
             }
             return null;
         }
-        public string UploadFile(string pathToUploadFile, string fileName)//path to upload file
+        public string UploadFile(string pathToUploadFile)
         {
             try
             {   // Create Drive API service.
@@ -93,20 +97,17 @@ namespace GoogleDriveApi
                 //Init metadata
                 var fileMetadata = new Google.Apis.Drive.v3.Data.File()
                 {
-                    Name = $"{fileName}.txt"
+                    Name = $"{GetNameFromPath(pathToUploadFile)}"
                 };
 
                 // Create a new file on drive.
                 FilesResource.CreateMediaUpload request;// Define parameters of request.
                 using (var stream = new FileStream(pathToUploadFile, FileMode.Open))
                 {
-
-                    request = service.Files.Create(
-                        fileMetadata, stream, "text/plain");
+                    request = service.Files.Create(fileMetadata, stream, "text/plain");
                     request.Fields = "id";
                     request.Upload();
                 }
-
                 var file = request.ResponseBody;
                 return file.Id;
             }
@@ -116,6 +117,12 @@ namespace GoogleDriveApi
             }
             return null;
         }
+        /// <summary>
+        /// Update file in google drive
+        /// </summary>
+        /// <param name="pathToUpdateFile">Path to file in your computer</param>
+        /// <param name="fileId">Id of file in google drive</param>
+        /// <returns>Return file id if successful</returns>
         public string UpdateFile(string pathToUpdateFile, string fileId)
         {
             try
@@ -127,9 +134,18 @@ namespace GoogleDriveApi
                     ApplicationName = "Drive API .NET Quickstart"
                 });
                 //Init metadata
+                FilesResource.ListRequest requestName = service.Files.List();
+                requestName.Q = "trashed = false";
+                var result = requestName.Execute();
+                string name = "newItem.txt";
+                foreach (var item in result.Files)
+                {
+                    if (item.Id == fileId)
+                        name = item.Name;
+                }
                 var fileMetadata = new Google.Apis.Drive.v3.Data.File()
                 {
-                    Name = "test.txt"
+                    Name = name
                 };
 
                 FilesResource.UpdateMediaUpload request;
@@ -149,32 +165,47 @@ namespace GoogleDriveApi
             }
             return null;
         }
-        public string ListenFile(UserCredential Credential)
+        public string GetFileID(string fileName)
         {
-            try
-            {
                 // Create Drive API service.
                 var service = new DriveService(new BaseClientService.Initializer
                 {
                     HttpClientInitializer = Credential
                 });
-                //Init metadata
-
 
                 FilesResource.ListRequest request = service.Files.List();
-                request.Q = "name = 'test.txt' and trashed = false";
+                request.Q = $"name = '{fileName}' and trashed = false";
                 var result = request.Execute();
-                foreach (var item in result.Files)
+                
+                if(result.Files !=null)
                 {
-
-                    Console.WriteLine(item.Id);
+                    return result.Files[0]?.Id;
                 }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
+                else
+                {
+                    Console.WriteLine("File not found");
+                    return null;
+                }
             return null;
         }
+        public DateTime? GetFileModifiedDate(string fileName)
+        {
+            // Create Drive API service.
+            var service = new DriveService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = Credential
+            });
+
+            FilesResource.GetRequest request = service.Files.Get(GetFileID(fileName));
+            request.Fields = "modifiedTime";
+            var result = request.Execute();
+            return result.ModifiedTime;
+        }
+        #region Helper methods
+        private string GetNameFromPath(string pathToUploadFile)
+        {
+            return pathToUploadFile.Substring(pathToUploadFile.LastIndexOf('\\')+1);
+        }
+        #endregion
     }
 }
