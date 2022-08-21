@@ -2,11 +2,6 @@
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GoogleDriveApi
 {
@@ -69,11 +64,11 @@ namespace GoogleDriveApi
                 string name = "newItem.txt";
                 foreach (var item in result.Files)
                 {
-                    if(item.Id == fileID)   
-                        name = item.Name;   
+                    if (item.Id == fileID)
+                        name = item.Name;
                 }
                 FilesResource.GetRequest listRequest = service.Files.Get(fileID);// Define parameters of request.
-                using (var stream = new FileStream(pathToDirectory +"\\"+ name, FileMode.OpenOrCreate))
+                using (var stream = new FileStream(pathToDirectory + "\\" + name, FileMode.OpenOrCreate))
                 {
                     var status = listRequest.DownloadWithStatus(stream);
                 }
@@ -167,25 +162,25 @@ namespace GoogleDriveApi
         }
         public string GetFileID(string fileName)
         {
-                // Create Drive API service.
-                var service = new DriveService(new BaseClientService.Initializer
-                {
-                    HttpClientInitializer = Credential
-                });
+            // Create Drive API service.
+            var service = new DriveService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = Credential
+            });
 
-                FilesResource.ListRequest request = service.Files.List();
-                request.Q = $"name = '{fileName}' and trashed = false";
-                var result = request.Execute();
-                
-                if(result.Files !=null)
-                {
-                    return result.Files[0]?.Id;
-                }
-                else
-                {
-                    Console.WriteLine("File not found");
-                    return null;
-                }
+            FilesResource.ListRequest request = service.Files.List();
+            request.Q = $"name = '{fileName}' and trashed = false";
+            var result = request.Execute();
+
+            if (result.Files != null)
+            {
+                return result.Files[0]?.Id;
+            }
+            else
+            {
+                Console.WriteLine("File not found");
+                return null;
+            }
             return null;
         }
         public DateTime? GetFileModifiedDate(string fileName)
@@ -201,10 +196,24 @@ namespace GoogleDriveApi
             var result = request.Execute();
             return result.ModifiedTime;
         }
+        public bool isFileExist(string fileName)
+        {
+            var service = new DriveService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = Credential
+            });
+            FilesResource.ListRequest request = service.Files.List();
+            request.Q = $"name = '{fileName}' and trashed = false";
+            var result = request.Execute();
+            if(result.Files != null && result.Files.Count > 0)
+                return true;
+            else
+                return false;
+        }
         #region Helper methods
         private string GetNameFromPath(string pathToUploadFile)
         {
-            return pathToUploadFile.Substring(pathToUploadFile.LastIndexOf('\\')+1);
+            return pathToUploadFile.Substring(pathToUploadFile.LastIndexOf('\\') + 1);
         }
         #endregion
     }
