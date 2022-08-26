@@ -2,43 +2,66 @@
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
-
+using Serilog;
 namespace GoogleDriveApi
 {
     public class GoogleDriveStats
     {
+        ILogger log;
         UserCredential Credential { get; }
         public GoogleDriveStats(string pathToCredential)
         {
+            log = new LoggerConfiguration() 
+                    .WriteTo.File($"logs/{DateTime.Now.ToShortDateString()}.txt")
+                   
+                    .CreateLogger();
             Credential = AuthorizeCredential(pathToCredential);
         }
         private UserCredential AuthorizeCredential(string credentialsPath)
         {
-            UserCredential credential;
-            if (!string.IsNullOrEmpty(credentialsPath))
+            log.Information("Авторизация полномочий");
+            try
             {
-                using (var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read))   // Load client secrets.So that get credentials need regitstrate them in https://console.cloud.google.com/apis/credentials
+                throw new Exception();
+                UserCredential credential;
+                if (!string.IsNullOrEmpty(credentialsPath))
                 {
-                    /* The file token.json stores the user's access and refresh tokens, and is created
-                     automatically when the authorization flow completes for the first time. */
-                    string credPath = "token.json";
-                    credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
-                        GoogleClientSecrets.FromStream(stream).Secrets,
-                        new[] { DriveService.Scope.Drive },
-                        "user",
-                        CancellationToken.None,
-                        new FileDataStore(credPath, true)).Result;
-                }
-                if (credential == null)
-                {
-                    Console.WriteLine("Incorrect path to credential");
-                    return null;
+                    using (var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read))   // Load client secrets.So that get credentials need regitstrate them in https://console.cloud.google.com/apis/credentials
+                    {
+                        /* The file token.json stores the user's access and refresh tokens, and is created
+                         automatically when the authorization flow completes for the first time. */
+                        string credPath = "token.json";
+                        credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                            GoogleClientSecrets.FromStream(stream).Secrets,
+                            new[] { DriveService.Scope.Drive },
+                            "user",
+                            CancellationToken.None,
+                            new FileDataStore(credPath, true)).Result;
+                    }
+                    if (credential == null)
+                    {
+                        log.Information("Не получилось получить полномочия");
+                        return null;
+                    }
+                    else
+                    {
+                        log.Information($"Возращаемые полномочия {credential}");
+                        return credential;
+                    }
                 }
                 else
-                    return credential;
+                {
+                    log.Information("Не получилось получить полномочия");
+                    return null;
+                }
+
             }
-            else
-                return null;
+            catch (Exception e)
+            {
+                log.Warning(e, "Что-то пошло не так при получении полномочий");
+            }
+            log.Information("Не получилось получить полномочия");
+            return null;
 
         }
         /// <summary>
@@ -49,6 +72,7 @@ namespace GoogleDriveApi
         /// <returns>File id</returns>
         public string DownloadFile(string pathToDirectory, string fileID)
         {
+            log.Information("Началась закачка файла");
             try
             {
                 // Create Drive API service.
@@ -76,12 +100,15 @@ namespace GoogleDriveApi
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                log.Warning(e, "Что-то пошло не так при закачке файла");
             }
+            log.Information("Произошла ошибка при закачке файла");
             return null;
         }
         public string UploadFile(string pathToUploadFile)
         {
+            log.Information("Началась загрузка файла на сервер");
+
             try
             {   // Create Drive API service.
                 var service = new DriveService(new BaseClientService.Initializer
@@ -105,11 +132,15 @@ namespace GoogleDriveApi
                 }
                 var file = request.ResponseBody;
                 return file.Id;
+
+
+
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                log.Warning(e, "Что-то пошло не так при загрузке файла на сервер");
             }
+            log.Information("Не удалось загрузить файлы на сервер");
             return null;
         }
         /// <summary>
@@ -120,6 +151,7 @@ namespace GoogleDriveApi
         /// <returns>Return file id if successful</returns>
         public string UpdateFile(string pathToUpdateFile, string fileId)
         {
+            log.Information("Началось обновление файла на сервере");
             try
             {
                 // Create Drive API service.
@@ -152,63 +184,110 @@ namespace GoogleDriveApi
                 }
 
                 var file = request.ResponseBody;
+                log.Information($"Обновленный файл id {file.Id}");
                 return file.Id;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                log.Warning(e, "Обновление файла прервано");
+
             }
+            log.Information("Не удалось обновить данные");
             return null;
         }
         public string GetFileID(string fileName)
         {
-            // Create Drive API service.
-            var service = new DriveService(new BaseClientService.Initializer
+            log.Information("Началось получение id файла");
+            try
             {
-                HttpClientInitializer = Credential
-            });
+                // Create Drive API service.
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential
+                });
 
-            FilesResource.ListRequest request = service.Files.List();
-            request.Q = $"name = '{fileName}' and trashed = false";
-            var result = request.Execute();
+                FilesResource.ListRequest request = service.Files.List();
+                request.Q = $"name = '{fileName}' and trashed = false";
+                var result = request.Execute();
 
-            if (result.Files != null)
-            {
-                return result.Files[0]?.Id;
-            }
-            else
-            {
-                Console.WriteLine("File not found");
+                if (result.Files != null)
+                {
+                    string id = result.Files[0]?.Id;
+                    log.Information($"Получен id {id}");
+                    return id;
+                }
+                else
+                {
+                    log.Information($"Файл не найден");
+                    return null;
+                }
+                log.Information($"Файл не найден");
                 return null;
+
             }
+            catch (Exception e)
+            {
+                log.Warning(e, "Не получилось получить id");
+            }
+            log.Information($"Файл не найден");
             return null;
         }
         public DateTime? GetFileModifiedDate(string fileName)
         {
-            // Create Drive API service.
-            var service = new DriveService(new BaseClientService.Initializer
+            log.Information($"Получение даты модификации файла");
+            try
             {
-                HttpClientInitializer = Credential
-            });
+                // Create Drive API service.
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential
+                });
 
-            FilesResource.GetRequest request = service.Files.Get(GetFileID(fileName));
-            request.Fields = "modifiedTime";
-            var result = request.Execute();
-            return result.ModifiedTime;
+                FilesResource.GetRequest request = service.Files.Get(GetFileID(fileName));
+                request.Fields = "modifiedTime";
+                var result = request.Execute();
+                log.Information($"Время модификации {result.ModifiedTime}");
+                return result.ModifiedTime;
+
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, $"Не удалось получить дату модификации");
+            }
+            log.Information($"Не удалось получить дату модификации файла");
+            return null;
         }
         public bool isFileExist(string fileName)
         {
-            var service = new DriveService(new BaseClientService.Initializer
+            log.Information($"Проверка наличия файла");
+
+            try
             {
-                HttpClientInitializer = Credential
-            });
-            FilesResource.ListRequest request = service.Files.List();
-            request.Q = $"name = '{fileName}' and trashed = false";
-            var result = request.Execute();
-            if(result.Files != null && result.Files.Count > 0)
-                return true;
-            else
-                return false;
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential
+                });
+                FilesResource.ListRequest request = service.Files.List();
+                request.Q = $"name = '{fileName}' and trashed = false";
+                var result = request.Execute();
+                if (result.Files != null && result.Files.Count > 0)
+                {
+                    log.Information($"Файл есть");
+                    return true;
+                }
+                else
+                {
+                    log.Warning("Не удалось проверить наличие файла");
+                    return false;
+                }
+
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, "Не удалось проверить наличие файла");
+            }
+            log.Warning("Не удалось проверить наличие файла");
+            return false;
         }
         #region Helper methods
         private string GetNameFromPath(string pathToUploadFile)
