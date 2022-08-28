@@ -22,7 +22,6 @@ namespace GoogleDriveApi
             log.Information("Авторизация полномочий");
             try
             {
-                throw new Exception();
                 UserCredential credential;
                 if (!string.IsNullOrEmpty(credentialsPath))
                 {
@@ -120,6 +119,44 @@ namespace GoogleDriveApi
                 var fileMetadata = new Google.Apis.Drive.v3.Data.File()
                 {
                     Name = $"{GetNameFromPath(pathToUploadFile)}"
+                };
+
+                // Create a new file on drive.
+                FilesResource.CreateMediaUpload request;// Define parameters of request.
+                using (var stream = new FileStream(pathToUploadFile, FileMode.Open))
+                {
+                    request = service.Files.Create(fileMetadata, stream, "text/plain");
+                    request.Fields = "id";
+                    request.Upload();
+                }
+                var file = request.ResponseBody;
+                return file.Id;
+
+
+
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, "Что-то пошло не так при загрузке файла на сервер");
+            }
+            log.Information("Не удалось загрузить файлы на сервер");
+            return null;
+        }
+        public string UploadFile(string pathToUploadFile,string fileName)//new file name in google drive
+        {
+            log.Information("Началась загрузка файла на сервер");
+
+            try
+            {   // Create Drive API service.
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential,
+                    ApplicationName = "Drive API .NET Quickstart"
+                });
+                //Init metadata
+                var fileMetadata = new Google.Apis.Drive.v3.Data.File()
+                {
+                    Name = fileName
                 };
 
                 // Create a new file on drive.
