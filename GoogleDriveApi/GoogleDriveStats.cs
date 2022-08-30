@@ -15,7 +15,7 @@ namespace GoogleDriveApi
                     .WriteTo.File($"logs/{DateTime.Now.ToShortDateString()}.txt")
                    
                     .CreateLogger();
-            Credential = AuthorizeCredential(pathToCredential);
+            Credential =   AuthorizeCredential(pathToCredential);
         }
         private UserCredential AuthorizeCredential(string credentialsPath)
         {
@@ -30,12 +30,13 @@ namespace GoogleDriveApi
                         /* The file token.json stores the user's access and refresh tokens, and is created
                          automatically when the authorization flow completes for the first time. */
                         string credPath = "token.json";
-                        credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                        var result =   GoogleWebAuthorizationBroker.AuthorizeAsync(
                             GoogleClientSecrets.FromStream(stream).Secrets,
                             new[] { DriveService.Scope.Drive },
                             "user",
                             CancellationToken.None,
-                            new FileDataStore(credPath, true)).Result;
+                            new FileDataStore(credPath, true)).ConfigureAwait(false);
+                        credential = result.GetAwaiter().GetResult();
                     }
                     if (credential == null)
                     {
