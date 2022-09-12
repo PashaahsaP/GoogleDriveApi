@@ -105,82 +105,6 @@ namespace GoogleDriveApi
             log.Information("Произошла ошибка при закачке файла");
             return null;
         }
-        public string UploadFile(string pathToUploadFile)
-        {
-            log.Information("Началась загрузка файла на сервер");
-
-            try
-            {   // Create Drive API service.
-                var service = new DriveService(new BaseClientService.Initializer
-                {
-                    HttpClientInitializer = Credential,
-                    ApplicationName = "Drive API .NET Quickstart"
-                });
-                //Init metadata
-                var fileMetadata = new Google.Apis.Drive.v3.Data.File()
-                {
-                    Name = $"{GetNameFromPath(pathToUploadFile)}"
-                };
-
-                // Create a new file on drive.
-                FilesResource.CreateMediaUpload request;// Define parameters of request.
-                using (var stream = new FileStream(pathToUploadFile, FileMode.Open))
-                {
-                    request = service.Files.Create(fileMetadata, stream, "text/plain");
-                    request.Fields = "id";
-                    request.Upload();
-                }
-                var file = request.ResponseBody;
-                return file.Id;
-
-
-
-            }
-            catch (Exception e)
-            {
-                log.Warning(e, "Что-то пошло не так при загрузке файла на сервер");
-            }
-            log.Information("Не удалось загрузить файлы на сервер");
-            return null;
-        }
-        public string UploadFile(string pathToUploadFile,string fileName)//new file name in google drive
-        {
-            log.Information("Началась загрузка файла на сервер");
-
-            try
-            {   // Create Drive API service.
-                var service = new DriveService(new BaseClientService.Initializer
-                {
-                    HttpClientInitializer = Credential,
-                    ApplicationName = "Drive API .NET Quickstart"
-                });
-                //Init metadata
-                var fileMetadata = new Google.Apis.Drive.v3.Data.File()
-                {
-                    Name = fileName
-                };
-
-                // Create a new file on drive.
-                FilesResource.CreateMediaUpload request;// Define parameters of request.
-                using (var stream = new FileStream(pathToUploadFile, FileMode.Open))
-                {
-                    request = service.Files.Create(fileMetadata, stream, "text/plain");
-                    request.Fields = "id";
-                    request.Upload();
-                }
-                var file = request.ResponseBody;
-                return file.Id;
-
-
-
-            }
-            catch (Exception e)
-            {
-                log.Warning(e, "Что-то пошло не так при загрузке файла на сервер");
-            }
-            log.Information("Не удалось загрузить файлы на сервер");
-            return null;
-        }
         /// <summary>
         /// Update file in google drive
         /// </summary>
@@ -233,7 +157,64 @@ namespace GoogleDriveApi
             log.Information("Не удалось обновить данные");
             return null;
         }
-        public string GetFileID(string fileName)
+        public DateTime? GetFileModifiedDate(string fileName)
+        {
+            log.Information($"Получение даты модификации файла");
+            try
+            {
+                // Create Drive API service.
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential
+                });
+
+                FilesResource.GetRequest request = service.Files.Get(GetFileOrFolderID(fileName));
+                request.Fields = "modifiedTime";
+                var result = request.Execute();
+                log.Information($"Время модификации {result.ModifiedTime}");
+                return result.ModifiedTime;
+
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, $"Не удалось получить дату модификации");
+            }
+            log.Information($"Не удалось получить дату модификации файла");
+            return null;
+        }
+        public bool isFileOrFolderExist(string fileName)
+        {
+            log.Information($"Проверка наличия файла");
+
+            try
+            {
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential
+                });
+                FilesResource.ListRequest request = service.Files.List();
+                request.Q = $"name = '{fileName}' and trashed = false";
+                var result = request.Execute();
+                if (result.Files != null && result.Files.Count > 0)
+                {
+                    log.Information($"Файл есть");
+                    return true;
+                }
+                else
+                {
+                    log.Warning("Не удалось проверить наличие файла");
+                    return false;
+                }
+
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, "Не удалось проверить наличие файла");
+            }
+            log.Warning("Не удалось проверить наличие файла");
+            return false;
+        }
+        public string GetFileOrFolderID(string fileName)
         {
             log.Information("Началось получение id файла");
             try
@@ -270,63 +251,85 @@ namespace GoogleDriveApi
             log.Information($"Файл не найден");
             return null;
         }
-        public DateTime? GetFileModifiedDate(string fileName)
+        public string CreateFolder(string folderName,string? destinationFolderID = null)
         {
-            log.Information($"Получение даты модификации файла");
+            log.Information("Началось создание папки");
             try
             {
                 // Create Drive API service.
                 var service = new DriveService(new BaseClientService.Initializer
                 {
-                    HttpClientInitializer = Credential
+                    HttpClientInitializer = Credential,
+                    ApplicationName = "Drive API .NET"
                 });
-
-                FilesResource.GetRequest request = service.Files.Get(GetFileID(fileName));
-                request.Fields = "modifiedTime";
-                var result = request.Execute();
-                log.Information($"Время модификации {result.ModifiedTime}");
-                return result.ModifiedTime;
+                // File metadata
+                var fileMetadata = new Google.Apis.Drive.v3.Data.File()
+                {
+                    Name = folderName,
+                    MimeType = "application/vnd.google-apps.folder"
+                };
+                if(destinationFolderID != null)
+                    fileMetadata.Parents= new List<string>() { destinationFolderID };
+                // Create a new folder on drive.
+                var request = service.Files.Create(fileMetadata);
+                request.Fields = "id";
+                var file = request.Execute();
+                // Prints the created folder id.
+                log.Information("Folder ID: " + file.Id);
+                return file.Id;
 
             }
             catch (Exception e)
             {
-                log.Warning(e, $"Не удалось получить дату модификации");
+                log.Warning(e, "Что-то пошло не так при создании папки");
             }
-            log.Information($"Не удалось получить дату модификации файла");
+            log.Information("Произошла ошибка при создании файла");
             return null;
         }
-        public bool isFileExist(string fileName)
+        public string UploadFileInFolder(string pathToUploadFile, string? fileName = null, string? destinationFolderID=null)
         {
-            log.Information($"Проверка наличия файла");
+            log.Information("Началась загрузка файла на сервер");
 
             try
-            {
+            {   // Create Drive API service.
                 var service = new DriveService(new BaseClientService.Initializer
                 {
-                    HttpClientInitializer = Credential
+                    HttpClientInitializer = Credential,
+                    ApplicationName = "Drive API .NET Quickstart"
                 });
-                FilesResource.ListRequest request = service.Files.List();
-                request.Q = $"name = '{fileName}' and trashed = false";
-                var result = request.Execute();
-                if (result.Files != null && result.Files.Count > 0)
+                //Init metadata
+                Google.Apis.Drive.v3.Data.File fileMetadata = new();
+                if (fileName == null)
                 {
-                    log.Information($"Файл есть");
-                    return true;
+                    fileMetadata.Name = $"{GetNameFromPath(pathToUploadFile)}";
                 }
                 else
                 {
-                    log.Warning("Не удалось проверить наличие файла");
-                    return false;
+                    fileMetadata.Name=fileName;
                 }
-
+                if (destinationFolderID != null)
+                {
+                    fileMetadata.Parents = new List<string>() { destinationFolderID };
+                }
+                // Create a new file on drive.
+                FilesResource.CreateMediaUpload request;// Define parameters of request.
+                using (var stream = new FileStream(pathToUploadFile, FileMode.Open))
+                {
+                    request = service.Files.Create(fileMetadata, stream, "text/plain");
+                    request.Fields = "id";
+                    request.Upload();
+                }
+                var file = request.ResponseBody;
+                return file.Id;
             }
             catch (Exception e)
             {
-                log.Warning(e, "Не удалось проверить наличие файла");
+                log.Warning(e, "Что-то пошло не так при загрузке файла на сервер");
             }
-            log.Warning("Не удалось проверить наличие файла");
-            return false;
+            log.Information("Не удалось загрузить файлы на сервер");
+            return null;
         }
+
         #region Helper methods
         private string GetNameFromPath(string pathToUploadFile)
         {
