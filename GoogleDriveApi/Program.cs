@@ -11,7 +11,7 @@ namespace GoogleDriveApi
          static void Main(string[] strings)
         {
             GoogleDriveStats test = new(Environment.CurrentDirectory+"\\"+ "client_secret_962208404895-0upedvipigcorrt3sc7tkd1e82e0484n.apps.googleusercontent.com.json");
-            var tt = test.UpdateFile(@"C:\Users\psair\Desktop\xz.txt", test.GetFileOrFolderID("TestDocument"));
+            var tt = test.UpdateFileInFolder(@"C:\Users\psair\Desktop\xz.txt", test.GetFileOrFolderID("TestDocument"),test.GetFileOrFolderID("Data"));
            Console.ReadLine();
         }
     }

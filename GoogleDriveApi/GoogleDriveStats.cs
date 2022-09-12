@@ -157,6 +157,52 @@ namespace GoogleDriveApi
             log.Information("Не удалось обновить данные");
             return null;
         }
+        public string UpdateFileInFolder(string pathToUpdateFile, string fileId,string folder)
+        {
+            log.Information("Началось обновление файла на сервере");
+            try
+            {
+                // Create Drive API service.
+                var service = new DriveService(new BaseClientService.Initializer
+                {
+                    HttpClientInitializer = Credential,
+                    ApplicationName = "Drive API .NET Quickstart"
+                });
+                //Init metadata
+                FilesResource.ListRequest requestName = service.Files.List();
+                requestName.Q = $"'{folder}' in parents and trashed=false";
+                var result = requestName.Execute();
+                string name = "newItem.txt";
+                foreach (var item in result.Files)
+                {
+                    if (item.Id == fileId)
+                        name = item.Name;
+                }
+                var fileMetadata = new Google.Apis.Drive.v3.Data.File()
+                {
+                    Name = name
+                };
+
+                FilesResource.UpdateMediaUpload request;
+                using (var stream = new FileStream(pathToUpdateFile, FileMode.OpenOrCreate))
+                {
+                    request = service.Files.Update(fileMetadata, fileId, stream, "text/plain");
+                    request.Fields = "id";
+                    request.Upload();
+                }
+
+                var file = request.ResponseBody;
+                log.Information($"Обновленный файл id {file.Id}");
+                return file.Id;
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, "Обновление файла прервано");
+
+            }
+            log.Information("Не удалось обновить данные");
+            return null;
+        }
         public DateTime? GetFileModifiedDate(string fileName)
         {
             log.Information($"Получение даты модификации файла");
